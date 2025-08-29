@@ -40,7 +40,9 @@ struct VertexOutput {
     @location(2) uv: vec2<f32>, 
 }
 
-var<private> light: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
+var<private> light_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
+var<private> light_direction: vec3<f32> = vec3<f32>(0.25, -0.7, 0.3);
+var<private> ambient_strength: f32 = 0.4;
 
 var<private> normals: array<vec3<f32>, 6> = array<vec3<f32>,6> (
 	vec3<f32>(0.0, 1.0, 0.0),   // Up
@@ -101,11 +103,15 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    //let block_type = blocks[in.block];
     let normal = normals[in.side];
     let color: vec4<f32> = textureSample(textures[in.block], nearest_sampler, in.uv);
 
-    // todo: add direction light
+    let ambient_color = light_color * ambient_strength;
+    let light_dir = normalize(light_direction);
+    let diffuse_strength = max(dot(normal, light_dir), 0.0);
+    let diffuse_color = light_color * diffuse_strength;
 
-    return color;
+    let result = (ambient_color + diffuse_strength) * color.xyz;
+
+    return vec4<f32>(result, color.a);
 }

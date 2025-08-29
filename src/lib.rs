@@ -9,6 +9,7 @@ mod math;
 mod chunks;
 mod mesher;
 mod player;
+mod assets;
 
 // Ticks per second
 pub const TIPS: i64 = 20;
@@ -21,6 +22,11 @@ pub const TASK: i64 = 1_000_000 / TAPS;
 #[spacetimedb::reducer(init)]
 pub fn init(ctx: &ReducerContext) {
     AsyncComputeTaskPool::get_or_init(|| TaskPool::new());
+    assets::load(ctx);
+
+    // todo: setup main server components
+    mesher::Mesher::init();
+    chunks::setup(ctx);
 
     // Tasks proceed schedule loop
     ctx.db.tasks().insert(TasksSchedule {
@@ -36,8 +42,6 @@ pub fn init(ctx: &ReducerContext) {
         tickrate: 0.0,
         tick: 0
     });
-
-    // todo: setup main server components
 }
 
 #[table(name = tasks, scheduled(proceed_tasks))]
@@ -49,9 +53,9 @@ pub struct TasksSchedule {
 }
 
 #[reducer]
-fn proceed_tasks(ctx: &ReducerContext, _: TasksSchedule) -> Result<(), String> {
+fn proceed_tasks(ctx: &ReducerContext, _arg: TasksSchedule) -> Result<(), String> {
     if ctx.sender != ctx.identity() {
-        return Err("Task pool may not be invoked only via scheduling.".into());
+        return Err("Task pool not be invoked only via scheduling.".into());
     }
 
     AsyncComputeTaskPool::get()
@@ -74,7 +78,7 @@ pub struct Ticks {
 #[reducer]
 fn run_tick(ctx: &ReducerContext, mut arg: Ticks) -> Result<(), String> {
     if ctx.sender != ctx.identity() {
-        return Err("Tick may not be invoked only via scheduling.".into());
+        return Err("Tick may be invoked only via scheduling.".into());
     }
 
     // Begin tick
@@ -84,10 +88,10 @@ fn run_tick(ctx: &ReducerContext, mut arg: Ticks) -> Result<(), String> {
     arg.previous = ctx.timestamp;
 
     // Run generator tasks
-    //chunks::proceed_generator(ctx);
+    chunks::proceed_generator(ctx);
 
     // Run mesher tasks
-    //mesher::proceed_mesher(ctx);
+    mesher::proceed_mesher(ctx);
 
     ctx.db.ticks().id().update(arg);
     Ok(())

@@ -8,7 +8,6 @@ use super::{
     chunks::{SIZE_I32, ChunksRefs, Block, BlocksHandler}
 };
 use bevy_tasks::{block_on, AsyncComputeTaskPool, Task};
-use log::info;
 use spacetimedb::{table, ReducerContext, Table};
 
 #[derive(Debug)]
@@ -55,7 +54,7 @@ impl Direction {
             Self::Forward => IVec3::new(row, column, axis),
             Self::Back => IVec3::new(row, column, axis-1),
         }
-    } 
+    }
 
     /// Get next -Z block relative pos
     pub fn air_sample(&self) -> IVec3 {
@@ -201,14 +200,13 @@ pub struct Mesh {
 impl Mesh {
     fn make_vertices(dir: Direction, refs: &ChunksRefs) -> Vec<u32> {
         let mut vertices = Vec::new();
-        let handler = BlocksHandler::get();
-        let size = SIZE_I32;
+        let handler = BlocksHandler::get().read().unwrap();
 
         // Culled meshser
-        for axis in 0..size {
-            for i in 0..size.pow(2) {
-                let row = i % size;
-                let column = i / size;
+        for axis in 0..SIZE_I32 {
+            for i in 0..SIZE_I32.pow(2) {
+                let row = i % SIZE_I32;
+                let column = i / SIZE_I32;
                 let pos = dir.world_sample(axis, row, column);
 
                 let current = handler.block(refs.get_block(pos)).unwrap();
@@ -288,7 +286,7 @@ pub fn proceed_mesher(ctx: &ReducerContext) {
         }
 
         let mesh = block_on(task);
-        info!("Generated mesh: {}", pos);
+        log::info!("Builded mesh: {}", pos);
         ctx.db.mesh().insert(mesh);
     }
 }

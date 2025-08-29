@@ -1,27 +1,37 @@
-use std::sync::*;
+use std::{collections::HashMap, sync::*};
 use spacetimedb::{table, ReducerContext, Table, SpacetimeType};
 
 #[derive(Debug)]
-pub struct BlocksHandler(RwLock<Vec<Arc<Block>>>);
-static VALUE: OnceLock<BlocksHandler> = OnceLock::new();
+pub struct BlocksHandler {
+    values: Vec<Arc<Block>>,
+    names: HashMap<String, Arc<Block>>
+}
+
+static VALUE: OnceLock<RwLock<BlocksHandler>> = OnceLock::new();
 
 impl BlocksHandler {
     pub fn new(ctx: &ReducerContext) -> Self {
-        let blocks = ctx.db.block().iter().map(|b| Arc::new(b)).collect();
-        Self(RwLock::new(blocks))
+        let values: Vec<Arc<Block>> = ctx.db.block().iter().map(|b| Arc::new(b)).collect();
+        let names = HashMap::from_iter(values.iter().map(|v| (v.name.clone(), v.clone())));
+
+        Self { values, names }
     }
 
     pub fn init(ctx: &ReducerContext) {
-        VALUE.set(Self::new(ctx)).unwrap();
+        VALUE.set(RwLock::new(Self::new(ctx))).unwrap();
     }
 
-    pub fn get() -> &'static Self {
+    pub fn get() -> &'static RwLock<Self> {
         VALUE.get().unwrap()
     }
 
+    pub fn find_block(&self, name: &str) -> u16 {
+        self.names.get(name).cloned()
+            .and_then(|b| Some(b.id)).unwrap_or(0)
+    }
+
     pub fn block(&self, id: u16) -> Option<Arc<Block>> {
-        let access = self.0.read().unwrap();
-        access.get(id as usize).cloned()
+        self.values.get(id as usize).cloned()
     }
 }
 

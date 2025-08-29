@@ -1,58 +1,69 @@
-use spacetimedb::rand::Rng;
 use fastnoise_lite::*;
+use bevy_tasks::*;
 use std::sync::*;
 use super::*;
 
+
 /// World gen context
 /// todo: load data from config
+pub struct Context {
+    noise: FastNoiseLite,
+}
+
+static CONTEXT: OnceLock<RwLock<Context>> = OnceLock::new();
+
+impl Context {
+    pub fn new(seed: i32) -> Self {
+        Self { noise: FastNoiseLite::with_seed(seed) }
+    }
+
+    pub fn init(seed: i32) {
+        let _ = CONTEXT.set(RwLock::new(Self::new(seed)));
+    }
+
+    pub fn get() -> &'static RwLock<Self> {
+        CONTEXT.get().unwrap()
+    }
+}
+
+#[derive(Debug)]
 pub struct Generator {
-    noise: FastNoiseLite
+    pub queue: Vec<IVec3>,
+    pub tasks: HashMap<IVec3, Task<Chunk>>
 }
 
 static VALUE: OnceLock<RwLock<Generator>> = OnceLock::new();
 
 impl Generator {
-    pub fn new(seed: i32) -> Self {
-        let noise = FastNoiseLite::with_seed(seed);
+    pub const MAX_TASKS: usize = 32;
 
-        Self { noise }
+    pub fn new() -> Self {
+        Self {
+            queue: Vec::new(),
+            tasks: HashMap::new(),
+        }
     }
 
-    pub fn init(seed: i32) {
-        let _ = VALUE.set(RwLock::new(Self::new(seed)));
+    pub fn init() {
+        VALUE.set(RwLock::new(Self::new())).unwrap();
     }
 
-    pub fn value() -> &'static RwLock<Self> {
+    pub fn get() -> &'static RwLock<Self> {
         VALUE.get().unwrap()
     }
 
-}
+    pub async fn generate(position: IVec3) -> Chunk {
+        let _context = Context::get().read().unwrap();
+        let blocks = BlocksHandler::get().read().unwrap();
+        let mut chunk = Chunk::new(position);
 
-// Get block by name
-pub fn find_block(ctx: &ReducerContext, name: impl Into<String>) -> u16 {
-    ctx.db.block().name().find(&name.into())
-        .and_then(|b| Some(b.id)).unwrap_or(0)
-}
-
-pub fn generate_chunk(ctx: &ReducerContext, pos: IVec3) -> Chunk {
-    // WIP: dynamic world size
-    let mut chunk = Chunk::new(pos);
-
-    let range = 4;
-    if pos.x > range || pos.x < -range || pos.y > range || pos.y < -range || pos.z > range || pos.z < -range {
-        return ctx.db.chunk().insert(chunk);
-    }
-
-    let vals = ["air", "dirt", "grass", "stone"];
-    let l = vals.len();
-
-    if pos.y == 0 {
-        for i in 0..SIZE.pow(3) {
-            let rand = ctx.rng().gen_range(0..l);
-
-            chunk.set_block(i, find_block(ctx, vals[rand]));
+        // todo: generate chunk
+        if position.y == 0 {
+            for i in 0..SIZE.pow(2) {
+                chunk.set_block(i, blocks.find_block("grass"));
+            }
         }
+        
+        chunk
     }
-    
-    ctx.db.chunk().insert(chunk)
 }
