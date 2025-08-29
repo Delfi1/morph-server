@@ -41,7 +41,7 @@ struct VertexOutput {
 }
 
 var<private> light_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
-var<private> light_direction: vec3<f32> = vec3<f32>(0.25, -0.7, 0.3);
+var<private> light_direction: vec3<f32> = vec3<f32>(0.25, 0.7, 0.3);
 var<private> ambient_strength: f32 = 0.4;
 
 var<private> normals: array<vec3<f32>, 6> = array<vec3<f32>,6> (

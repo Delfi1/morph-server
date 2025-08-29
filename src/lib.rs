@@ -40,7 +40,11 @@ pub fn init(ctx: &ReducerContext) {
         scheduled_at: TimeDuration::from_micros(TICK).into(),
         previous: ctx.timestamp,
         tickrate: 0.0,
-        tick: 0
+        tick: 0,
+        generator_tasks: 0,
+        generator_queue: 0,
+        mesher_tasks: 0,
+        mesher_queue: 0
     });
 }
 
@@ -72,7 +76,13 @@ pub struct Ticks {
 
     previous: Timestamp,
     pub tickrate: f64,
-    pub tick: u128
+    pub tick: u128,
+
+    // Generator and mesher load
+    generator_tasks: u32,
+    generator_queue: u32,
+    mesher_tasks: u32,
+    mesher_queue: u32,
 }
 
 #[reducer]
@@ -81,7 +91,7 @@ fn run_tick(ctx: &ReducerContext, mut arg: Ticks) -> Result<(), String> {
         return Err("Tick may be invoked only via scheduling.".into());
     }
 
-    // Begin tick
+    // Update stats
     arg.tick += 1;
     let delta = ctx.timestamp.duration_since(arg.previous).unwrap();
     arg.tickrate = 1.0 / delta.as_secs_f64();
@@ -93,6 +103,9 @@ fn run_tick(ctx: &ReducerContext, mut arg: Ticks) -> Result<(), String> {
     // Run mesher tasks
     mesher::proceed_mesher(ctx);
 
+    (arg.generator_tasks, arg.generator_queue) = chunks::Generator::load();
+    (arg.mesher_tasks, arg.mesher_queue) = mesher::Mesher::load();
+    
     ctx.db.ticks().id().update(arg);
     Ok(())
 }

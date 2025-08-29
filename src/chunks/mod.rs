@@ -210,13 +210,6 @@ pub fn proceed_generator(ctx: &ReducerContext) {
     let task_pool = AsyncComputeTaskPool::get();
     let mut generator = Generator::get().write().unwrap();
 
-    let l = generator.queue.len().min(Generator::MAX_TASKS - generator.tasks.len());
-
-    for pos in generator.queue.drain(0..l).collect::<Vec<IVec3>>() {
-        let task = task_pool.spawn(Generator::generate(pos));
-        generator.tasks.insert(pos, task);
-    }
-
     for (pos, task) in generator.tasks.drain().collect::<Vec<_>>() {
         if !task.is_finished() {
             generator.tasks.insert(pos, task);
@@ -226,6 +219,12 @@ pub fn proceed_generator(ctx: &ReducerContext) {
         let chunk = block_on(task);
         log::info!("Generated chunk: {}", pos);
         LoadArea::insert(pos, Arc::new(ctx.db.chunk().insert(chunk)));
+    }
+
+    let l = generator.queue.len().min(Generator::MAX_TASKS - generator.tasks.len());
+    for pos in generator.queue.drain(0..l).collect::<Vec<IVec3>>() {
+        let task = task_pool.spawn(Generator::generate(pos));
+        generator.tasks.insert(pos, task);
     }
 }
 
@@ -257,7 +256,7 @@ pub fn setup(ctx: &ReducerContext) {
     LoadArea::init();
     init_blocks(ctx);
 
-    let range = 4;
+    let range = 10;
     let l = ((range*2)+1) as usize;
     let mut area = Vec::with_capacity(l.pow(3));
 

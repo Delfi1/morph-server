@@ -35,6 +35,12 @@ impl Mesher {
     pub fn get() -> &'static RwLock<Mesher> {
         VALUE.get().unwrap()
     }
+
+    // Mesher load stats
+    pub fn load() -> (u32, u32) {
+        let access = Self::get().read().unwrap();
+        (access.tasks.len() as u32, access.queue.len() as u32)
+    }
 }
 
 // Also face normal
@@ -267,18 +273,6 @@ pub fn proceed_mesher(ctx: &ReducerContext) {
     let task_pool = AsyncComputeTaskPool::get();
     let mut mesher = Mesher::get().write().unwrap();
 
-    let l = mesher.queue.len().min(Mesher::MAX_TASKS - mesher.tasks.len());
-
-    for pos in mesher.queue.drain(0..l).collect::<Vec<IVec3>>() {
-        let Some(refs) = ChunksRefs::new(pos) else {
-            mesher.queue.push(pos);
-            continue;
-        };
-
-        let task = task_pool.spawn(build_mesh(pos, refs));
-        mesher.tasks.insert(pos, task);
-    }
-
     for (pos, task) in mesher.tasks.drain().collect::<Vec<_>>() {
         if !task.is_finished() {
             mesher.tasks.insert(pos, task);
@@ -289,4 +283,16 @@ pub fn proceed_mesher(ctx: &ReducerContext) {
         log::info!("Builded mesh: {}", pos);
         ctx.db.mesh().insert(mesh);
     }
+
+    let l = mesher.queue.len().min(Mesher::MAX_TASKS - mesher.tasks.len());
+    for pos in mesher.queue.drain(0..l).collect::<Vec<IVec3>>() {
+        let Some(refs) = ChunksRefs::new(pos) else {
+            mesher.queue.push(pos);
+            continue;
+        };
+
+        let task = task_pool.spawn(build_mesh(pos, refs));
+        mesher.tasks.insert(pos, task);
+    }
+
 }

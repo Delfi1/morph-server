@@ -54,7 +54,6 @@ pub fn create_player(ctx: &ReducerContext, name: String) -> Result<(), String> {
     Ok(())
 }
 
-
 #[reducer]
 pub fn join(ctx: &ReducerContext) -> Result<(), String> {
     let Some(mut player) = ctx.db.player().identity().find(ctx.sender) else {
@@ -70,3 +69,4 @@ pub fn join(ctx: &ReducerContext) -> Result<(), String> {
 
     Ok(())
 }
+

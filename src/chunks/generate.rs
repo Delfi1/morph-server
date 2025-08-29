@@ -57,13 +57,31 @@ impl Generator {
         let blocks = BlocksHandler::get().read().unwrap();
         let mut chunk = Chunk::new(position);
 
+        // WIP: dynamic world generation
+        let range = 8;
+        if position.x > range 
+            || position.x < -range 
+            || position.y > range 
+            || position.y < -range 
+            || position.z > range 
+            || position.z < -range { return chunk; }
+
+        let vals = ["air", "dirt", "grass", "stone"];
+        
         // todo: generate chunk
         if position.y == 0 {
-            for i in 0..SIZE.pow(2) {
-                chunk.set_block(i, blocks.find_block("grass"));
+            for i in 0..SIZE_P3 {
+                let name = fastrand::choice(vals).unwrap();
+                chunk.set_block(i, blocks.find_block(name));
             }
         }
         
         chunk
+    }
+
+    // Generator load stats
+    pub fn load() -> (u32, u32) {
+        let access = Self::get().read().unwrap();
+        (access.tasks.len() as u32, access.queue.len() as u32)
     }
 }
